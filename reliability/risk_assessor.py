@@ -29,6 +29,7 @@ def assess_risk(
 
     original_lines = original_code.strip().splitlines()
     fixed_lines = fixed_code.strip().splitlines()
+    structural_risk_detected = False
 
     # ----------------------------
     # Issue severity based risk
@@ -52,15 +53,26 @@ def assess_risk(
     if len(fixed_lines) < len(original_lines) * 0.5:
         score -= 20
         reasons.append("Fixed code is much shorter than original.")
+        structural_risk_detected = True
 
     if "return" in original_code and "return" not in fixed_code:
         score -= 30
         reasons.append("Return statements may have been removed.")
+        structural_risk_detected = True
 
     if "except:" in original_code and "except:" not in fixed_code:
         # This is usually good, but still risky.
         score -= 5
         reasons.append("Bare except was modified, verify correctness.")
+        structural_risk_detected = True
+
+    line_delta = abs(len(fixed_lines) - len(original_lines))
+    baseline_line_count = max(1, len(original_lines))
+    line_delta_ratio = line_delta / baseline_line_count
+    if line_delta_ratio > 0.25:
+        score -= 10
+        reasons.append("Fix changed code size significantly.")
+        structural_risk_detected = True
 
     # ----------------------------
     # Clamp score
@@ -80,7 +92,20 @@ def assess_risk(
     # ----------------------------
     # Auto-fix policy
     # ----------------------------
-    should_autofix = level == "low"
+    has_high_or_medium_issue = any(
+        str(issue.get("severity", "")).lower() in {"high", "medium"} for issue in issues
+    )
+
+    should_autofix = (
+        level == "low"
+        and score >= 90
+        and not has_high_or_medium_issue
+        and len(issues) <= 1
+        and not structural_risk_detected
+    )
+
+    if level == "low" and not should_autofix:
+        reasons.append("Auto-fix withheld by conservative policy gates.")
 
     if not reasons:
         reasons.append("No significant risks detected.")

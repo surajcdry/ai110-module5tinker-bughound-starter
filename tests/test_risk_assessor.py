@@ -46,3 +46,32 @@ def test_missing_return_is_penalized():
     )
     assert risk["score"] < 100
     assert any("Return" in r or "return" in r for r in risk["reasons"])
+
+
+def test_autofix_is_allowed_only_for_very_low_risk_case():
+    original = "def add(a, b):\n    return a + b\n"
+    fixed = "def add(a, b):\n    return a + b\n"
+    risk = assess_risk(
+        original_code=original,
+        fixed_code=fixed,
+        issues=[{"type": "Code Quality", "severity": "Low", "msg": "minor style issue"}],
+    )
+    assert risk["level"] == "low"
+    assert risk["score"] >= 90
+    assert risk["should_autofix"] is True
+
+
+def test_autofix_is_blocked_when_low_risk_but_multiple_issues():
+    original = "def add(a, b):\n    return a + b\n"
+    fixed = "def add(a, b):\n    return a + b\n"
+    risk = assess_risk(
+        original_code=original,
+        fixed_code=fixed,
+        issues=[
+            {"type": "Code Quality", "severity": "Low", "msg": "minor style issue"},
+            {"type": "Maintainability", "severity": "Low", "msg": "small readability issue"},
+        ],
+    )
+    assert risk["level"] == "low"
+    assert risk["should_autofix"] is False
+    assert any("conservative policy" in r for r in risk["reasons"])

@@ -102,6 +102,15 @@ temperature = st.sidebar.slider(
     help="Lower values tend to be more consistent. Higher values tend to be more creative.",
 )
 
+strict_mode = st.sidebar.checkbox(
+    "Strict AI output validation",
+    value=True,
+    help=(
+        "When enabled, BugHound accepts only strictly valid analyzer JSON and "
+        "safely-validated fixer code. Invalid model outputs fall back to heuristics."
+    ),
+)
+
 st.sidebar.divider()
 
 sample_choice = st.sidebar.selectbox(
@@ -169,7 +178,7 @@ if run_button:
         st.error("Gemini mode is selected, but no API key is available.")
         st.stop()
 
-    agent = BugHoundAgent(client=client)
+    agent = BugHoundAgent(client=client, strict_mode=strict_mode)
 
     with st.spinner("BugHound is sniffing around..."):
         result = agent.run(code_input)
